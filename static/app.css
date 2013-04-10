@@ -1,0 +1,31 @@
+body {
+	padding-bottom: 3em;
+	padding-top: 9.5em;
+	background-color: #fff;
+}
+
+#header {
+	position: fixed;
+	top: 0;
+	left: 0;
+	height: 8em;
+	background-color: #f2f2f2;
+	width: 100%;
+	overflow: hidden;
+	padding-top: 0.2em;
+}
+
+#input {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	height: 2.5em;
+	background-color: #f2f2f2;
+	width: 100%;
+	overflow: hidden;
+	padding-top: 0.2em;
+}
+
+#websocket-output p {
+	word-wrap: break-word;
+}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<title>app.js</title>
+		<link href="/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+		<link href="/lib/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" />
+		<script type="text/javascript">
+			<% var sd = new Date(); %>
+			var serverDate = new Date(<%= sd.getFullYear() %>, <%= sd.getMonth() %>, <%= sd.getDate() %>, <%= sd.getHours() %>, 0, 0, 0);
+		</script>
+		<script src="/lib/jquery-1.9.1.min.js"></script>
+		<script src="/lib/underscore-min.js"></script>
+		<script src="/lib/jquery.tmpl.min.js"></script>
+		<script src="/lib/dateformat.js"></script>
+		
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="/app.js"></script>
+		<link href="app.css" rel="stylesheet" />
+	</head>
+
+	<body>
+		<div id="header">
+			<div class="container-fluid">
+				<h1>App.js</h1>
+				<ul class="nav nav-pills">
+					<li><a href="/logout">Sign Out</a></li>
+				</ul>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<div id="websocket-output"></div>
+		</div>
+
+		<div id="input">
+			<div class="container-fluid">
+				<div class="input-append">
+					<input class="span10" id="inputData" type="text">
+					<div class="btn-group">
+						<button class="btn" id="submitData">
+							Say
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script type="text/template" id="messageTemplate">
+			<p>
+				[ ${date} ] ${nick} | ${text}
+			</p>
+		</script>
+		<script type="text/template" id="simpleTextTemplate">
+			<p>
+				${text}
+			</p>
+		</script>
+	</body>
+</html>

@@ -1,0 +1,21 @@
+{
+	"name": "app",
+	"version": "0.0.1",
+	"engines": {
+		"node": "0.8.x",
+		"npm": "1.2.x"
+	},
+	"scripts": {
+		"web": "node src/app.js"
+	},
+	"dependencies": {
+		"express": "3.0.x",
+		"ejs": "0.8.x",
+		"optimist": "*",
+		"underscore": "*",
+		"mongodb": "*",
+		"socket.io": "0.9.14",
+		"connect": "*",
+		"cookie": "*"
+	}
+}
