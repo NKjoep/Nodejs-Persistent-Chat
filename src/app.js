@@ -10,6 +10,7 @@
 	var crypto 			= require('crypto');
 	var mongodb			= require('mongodb');
 	var ChatServer		= require('./ChatServer/ChatServer.js')
+	var ChatServerDb	= require('./ChatServer/ChatServerDb.js')
 
 //options
 	var options = _.extend({
@@ -20,9 +21,7 @@
 	}, argv);
 
 
-//mongodb
-	var MongoClient = mongodb.MongoClient;
-
+	var ChatServerConnectedDb = null;
 
 //app server
 	this.app = app = express();
@@ -70,32 +69,30 @@
 		}
 	});
 
-	app.all('/login', 
+	app.all('/login',
 		function loadUser(req, res, routingCallBack) {
 			res.chatserver = { 
 				'user': null
 			};
 			res.ERRORMESSAGE = null;
 			if (req.body && req.body.username && req.body.password) {
-				MongoClient.connect(options.mongoUrl, function(err, db) {
-					if (err) { console.log("error connection", err); res.ERRORMESSAGE='Login problem. Try later.'; routingCallBack(); }
-					else if (!err) {
-						if (db!=null) {
-							var query = {
-								'username': req.body.username, 
-								'password': crypto.createHash("md5").update(req.body.password).digest("hex")
-							};
-							var result = db.collection(options.usersCollection).find(query).nextObject(function(err, result) {            
-								if (err) { console.log('error query', err); res.ERRORMESSAGE='Login problem. Try later.'; }
-								else {
-									res.chatserver.user = result;
-									db.close();
-								}
-								routingCallBack();
-							});
+				if (ChatServerConnectedDb!=null) {
+					var query = {
+						'username': req.body.username, 
+						'password': crypto.createHash("md5").update(req.body.password).digest("hex")
+					};
+					var result = ChatServerConnectedDb.collection(options.usersCollection).find(query).nextObject(function(err, result) {            
+						if (err) { console.log('error query', err); res.ERRORMESSAGE='Login problem. Try later.'; }
+						else {
+							res.chatserver.user = result;
 						}
-					}
-				});
+						routingCallBack();
+					});
+				}
+				else {
+					res.ERRORMESSAGE='Login problem. Try later.';
+					routingCallBack();
+				}
 			}
 			else {
 				routingCallBack();
@@ -126,23 +123,16 @@
 
 	app.get('/adduser', function(req, res) {
 		if (req.param('username') && req.param('password')) {
-			MongoClient.connect(options.mongoUrl, function(err, db) {
-				if (err) { console.log("error connection", err); }
-				else if (!err) {
-					if (db!=null) {
-						db.collection(options.usersCollection).insert({
-							'username': req.param('username'), 
-							'password': crypto.createHash("md5").update(req.param('password')).digest("hex")
-						}, function(err, result){
-							db.close();
-						});
-					}
+				if (ChatServerConnectedDb!=null) {
+					ChatServerConnectedDb.collection(options.usersCollection).insert({
+						'username': req.param('username'), 
+						'password': crypto.createHash("md5").update(req.param('password')).digest("hex")
+					}, function(err, result){
+					});
 				}
-			});
 		}
 		res.redirect('/');
 	});
-
 	var httpServer = http.createServer(app);
 
 
@@ -170,59 +160,44 @@
 			}.bind(myThis));
 		};
 
-		MongoClient.connect(options.mongoUrl, function(err, db) {
-			if (err) { console.log(err) }
-			else if (!err) {
-				if (db!=null) {
-					db.collection(options.messagesCollection).find().limit(150).sort({date: -1}).toArray(function(err, results){
-						if (!err && results) {
-							results = results.reverse();
-							_.each(results, function(result) {
-								socket.emit('chatserver-message',
-									ChatServer.messageNick(result.user, result.message, new Date(result.date)) 
-								);
-							});
-						}
-						db.close();
-						cbSetup();
-					}); 
+		if (ChatServerConnectedDb!=null) {
+			ChatServerConnectedDb.collection(options.messagesCollection).find().limit(150).sort({date: -1}).toArray(function(err, results){
+				if (!err && results) {
+					results = results.reverse();
+					_.each(results, function(result) {
+						socket.emit('chatserver-message',
+							ChatServer.messageNick(result.user, result.message, new Date(result.date)) 
+						);
+					});
 				}
-				else {
-					db.close();
-					cbSetup();
-					console.log('db is null');
-				}
-			}
-		});
+				cbSetup();
+			}); 
+		}
+		else {
+			cbSetup();
+			console.log('ChatServerConnectedDb is null');
+		}
 	};
 
 	var socketHandleMessage = function(socket, message) {
 		var message = message.trim();
 		if(message.length > 0) {
 			var submex = ChatServer.messageNick(socket.handshake.chatserver.username,message); 
-			
 			socket.emit("chatserver-message", submex);
 			socket.broadcast.emit("chatserver-message",submex);
-			
-			MongoClient.connect(options.mongoUrl, function(err, db) {
-				if (err) { console.log(err) }
-				else if (!err) {
-					if (db!=null) {
-						db.collection(options.messagesCollection).insert({
-							date: new Date(),
-							user: socket.handshake.chatserver.username,
-							message: message
-						},function(err, result) {
-							db.close();
-							if (err) { console.log(err); return; }
-						});
-					}
-					else {
-						db.close();
-						console.log('db is null');
-					}
-				}
-			});
+
+			if (ChatServerConnectedDb!=null) {
+				ChatServerConnectedDb.collection(options.messagesCollection).insert({
+					date: new Date(),
+					user: socket.handshake.chatserver.username,
+					message: message
+				},function(err, result) {
+					if (err) { console.log(err); return; }
+				});
+			}
+			else {
+				console.log('ChatServerConnectedDb is null');
+			}
 		}
 	};
 
@@ -255,6 +230,10 @@
 
 	socketServer.sockets.on('connection', socketHandleConnect);
 
-//start
-	httpServer.listen(options.port);
-	console.log("app started: http://localhost:"+options.port+"/");
+
+//start: open mongo connection and start http server
+	ChatServerDb.openPool(options.mongoUrl, function(db, err) {
+			ChatServerConnectedDb = db;
+			httpServer.listen(options.port);
+			console.log("app started: http://localhost:"+options.port+"/");
+	});
